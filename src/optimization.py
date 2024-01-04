@@ -119,13 +119,12 @@ class Load(Node):
 
 class Storage(Node):
 
-	def __init__(self, handle, links, **kwargs):
+	def __init__(self, handle, **kwargs):
 
 		self.handle = handle
-		self.links = links
 		self.capacity = kwargs.get('capacity', 0)
-		self.itintial = kwargs.get('itintial', None)
-		self.final = kwargs.get('final', None)
+		self.initial = kwargs.get('initial', .5)
+		self.final = kwargs.get('final', .5)
 		self.bounds = kwargs.get('bounds', (0, 1))
 
 	def variables(self, model):
@@ -156,19 +155,20 @@ class Storage(Node):
 
 	def constraints(self, model, step):
 
-		soc = getattr(model, self.handle)
+		soc = getattr(model, self.handle)[step]
+		# print(self.initial, self.final)
 
 		if (step == model.time.first()) & (self.initial is not None):
 
 			constraint = pyomo.Constraint(expr = soc == self.initial)
 
-			setattr(model, self.handle + '_soc_initial', constraint)
+			setattr(model, self.handle + '_initial', constraint)
 
 		elif (step == model.time.last()) & (self.final is not None):
 
 			constraint = pyomo.Constraint(expr = soc == self.final)
 
-			setattr(model, self.handle + '_soc_final', constraint)
+			setattr(model, self.handle + '_final', constraint)
 
 		return model
 
@@ -220,7 +220,17 @@ class Line(Link):
 		self.target = target
 		self.efficiency = kwargs.get('efficiency', 1) # From source to target
 		self.susceptance = kwargs.get('susceptance', 1)
-		self.bounds = kwargs.get('bounds', (-np.inf, np.inf))
+		self.limit = kwargs.get('limit', np.inf)
+
+	def bounds(self, model, step):
+
+		if hasattr(self.limit, '__iter__'):
+
+			return -self.limit[step], self.limit[step]
+
+		else:
+
+			return -self.limit, self.limit
 
 class Feeder(Link):
 
@@ -229,6 +239,17 @@ class Feeder(Link):
 		self.source = source
 		self.target = target
 		self.efficiency = kwargs.get('efficiency', 1) # From source to target
+		self.limit = kwargs.get('limit', np.inf)
+
+	def bounds(self, model, step):
+
+		if hasattr(self.limit, '__iter__'):
+
+			return -self.limit[step], self.limit[step]
+
+		else:
+
+			return -self.limit, self.limit
 
 class DC_OPF():
 
@@ -388,17 +409,23 @@ class DC_OPF():
 
 							line_flow = target_transmission - source_transmission
 
+							line_limits = link['object'].bounds(self.model, step)
+
+							if line_limits[0] == line_limits[1]:
+
+								line_flow = 0
+							
 							self.model.line_flow_constraints.add(
 								(
-									link['object'].bounds[0],
+									line_limits[0],
 									line_flow,
-									link['object'].bounds[1]
+									line_limits[1]
 									)
 								)
 
-							energy += line_flow * link['susceptance']
+							energy += line_flow * link['object'].susceptance
 							energy += (
-								(line_flow * (1 - link['efficiency'])) / 2 *
+								(line_flow * (1 - link['object'].efficiency)) / 2 *
 								direction[source][target]
 								)
 
