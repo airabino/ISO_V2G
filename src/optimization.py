@@ -6,6 +6,7 @@ import pandas as pd
 import pickle as pkl
 import matplotlib.pyplot as plt
 import pyomo.environ as pyomo
+import networkx as nx
 
 from copy import copy,deepcopy
 from itertools import chain
@@ -13,7 +14,87 @@ from scipy.stats import binom
 
 from .utilities import IsIterable,FullFact
 
-class Node():
+class Bus():
+
+	def __init__(self, handle, **kwargs):
+
+		self.handle = handle
+		self.bounds = kwargs.get('bounds', (-np.inf, np.inf))
+		self.dependents = kwargs.get('dependents', [])
+
+		self.build_objects()
+
+	def build_objects(self):
+
+		self.objects = []
+
+		for dependent in self.dependents:
+
+			if dependent['type'] == 'generation':
+
+				self.objects.append(Generation(dependent['id'], **dependent))
+
+			elif dependent['type'] == 'load':
+
+				self.objects.append(Load(dependent['id'], **dependent))
+
+			elif dependent['type'] == 'storage':
+
+				self.objects.append(Storage(dependent['id'], **dependent))
+
+			elif dependent['type'] == 'dissipation':
+
+				self.objects.append(Dissipator(dependent['id'], **dependent))
+
+	def variables(self, model):
+
+		transmission = pyomo.Var(
+			model.time,
+			domain = pyomo.NonNegativeReals,
+			bounds = self.bounds,
+			)
+
+		setattr(model, self.handle + '_transmission', transmission)
+
+		for obj in self.objects:
+
+			model = obj.variables(model)
+
+		return model
+
+	def constraints(self, model, step):
+
+		for obj in self.objects:
+
+			model = obj.constraints(model, step)
+
+		return model
+
+	def objective(self, model, step):
+
+		objective = 0
+
+		for obj in self.objects:
+
+			objective += obj.objective(model, step)
+
+		return objective
+
+	def energy(self, model, step):
+
+		energy = 0
+
+		for obj in self.objects:
+
+			energy += obj.energy(model, step)
+
+		return energy
+
+	def transmission(self, model, step):
+
+		return getattr(model, self.handle + '_transmission')[step]
+
+class Object():
 
 	def variables(self, model):
 
@@ -31,16 +112,20 @@ class Node():
 
 		return model
 
-	def transmission(self, model, step):
+	def results(self, model, results):
 
-		return model
+		return results
 
-class Bus(Node):
+class Generation(Object):
 
 	def __init__(self, handle, **kwargs):
 
 		self.handle = handle
-		self.bounds = kwargs.get('bounds', (-np.inf, np.inf))
+		self.cost = kwargs.get('cost', 0)
+		self.bounds = kwargs.get('bounds', (0, np.inf))
+		self.bus = kwargs.get('bus', None)
+
+		self.generation_handle = self.handle + '_generation'
 
 	def variables(self, model):
 
@@ -50,52 +135,37 @@ class Bus(Node):
 			bounds = self.bounds,
 			)
 
-		setattr(model, self.handle, generation)
-
-		return model
-
-	def transmission(self, model, step):
-
-		return getattr(model, self.handle)[step]
-
-class Generation(Node):
-
-	def __init__(self, handle, **kwargs):
-
-		self.handle = handle
-		self.cost = kwargs.get('cost', 0)
-		self.bounds = kwargs.get('bounds', (0, np.inf))
-
-	def variables(self, model):
-
-		var = pyomo.Var(
-			model.time,
-			domain = pyomo.NonNegativeReals,
-			bounds = self.bounds,
-			)
-
-		setattr(model, self.handle, var)
+		setattr(model, self.generation_handle, generation)
 
 		return model
 
 	def energy(self, model, step):
 
-		return getattr(model, self.handle)[step]
+		return getattr(model, self.generation_handle)[step]
 
 	def objective(self, model, step):
 
-		return self.cost * getattr(model, self.handle)[step]
+		return self.cost * getattr(model, self.generation_handle)[step]
 
-	def transmission(self, model, step):
+	def results(self, model, results):
 
-		return self.energy(model, step)
+		generation = np.array(
+			list(getattr(model, self.generation_handle).extract_values().values())
+			)
 
-class Load(Node):
+		results[self.generation_handle] = generation
+
+		results[self.generation_handle + '_cost'] = generation * self.cost
+
+		return results
+
+class Load(Object):
 
 	def __init__(self, handle, **kwargs):
 
 		self.handle = handle
 		self.value = kwargs.get('value', 0)
+		self.bus = kwargs.get('bus', None)
 
 	def variables(self, model):
 
@@ -113,11 +183,17 @@ class Load(Node):
 
 		return getattr(model, self.handle)[step]
 
-	def transmission(self, model, step):
+	def results(self, model, results):
 
-		return self.energy(model, step)
+		load = np.array(
+			list(getattr(model, self.handle).extract_values().values())
+			)
 
-class Storage(Node):
+		results[self.handle] = load
+
+		return results
+
+class Storage(Object):
 
 	def __init__(self, handle, **kwargs):
 
@@ -126,6 +202,73 @@ class Storage(Node):
 		self.initial = kwargs.get('initial', .5)
 		self.final = kwargs.get('final', .5)
 		self.bounds = kwargs.get('bounds', (0, 1))
+		self.limit = kwargs.get('limit', 1)
+		self.bus = kwargs.get('bus', None)
+
+	def variables(self, model):
+
+		var = pyomo.Var(
+			model.time,
+			domain = pyomo.Reals,
+			bounds = (-self.limit, self.limit),
+			)
+
+		setattr(model, self.handle, var)
+
+		return model
+
+	def energy(self, model, step):
+
+		return getattr(model, self.handle)[step] * self.capacity
+
+	def constraints(self, model, step):
+
+		soc = self.initial
+
+		for idx in range(step + 1):
+
+			delta_soc = getattr(model, self.handle)[idx]
+
+			soc -= delta_soc
+
+		if step == model.time.last():
+
+			constraint = pyomo.Constraint(expr = soc == self.final)
+
+			setattr(model, self.handle + '_final', constraint)
+
+		else:
+
+			constraint = pyomo.Constraint(
+				rule = (self.bounds[0], soc, self.bounds[1])
+				)
+
+			setattr(model, self.handle + f'_bounds_{step}', constraint)
+
+		return model
+
+	def results(self, model, results):
+
+		discharge = np.array(
+			list(getattr(model, self.generation_handle).extract_values().values())
+			)
+
+		results[self.handle + '_discharge'] = discharge * self.capacity
+
+		results[self.handle + '_state_of_charge'] = np.append(
+			self.initial,
+			-np.cumsum(discharge)+self.initial
+			)
+
+		return results
+
+class Dissipation(Object):
+
+	def __init__(self, handle, **kwargs):
+
+		self.handle = handle
+		self.bounds = kwargs.get('bounds', (-np.inf, 0))
+		self.bus = kwargs.get('bus', None)
 
 	def variables(self, model):
 
@@ -141,69 +284,17 @@ class Storage(Node):
 
 	def energy(self, model, step):
 
-		soc = getattr(model, self.handle)
-
-		if step == model.time.first():
-
-			delta_soc = soc[step] - self.initial
-
-		else:
-
-			delta_soc = soc[step] - soc[step - 1]
-
-		return delta_soc * self.capacity
-
-	def constraints(self, model, step):
-
-		soc = getattr(model, self.handle)[step]
-		# print(self.initial, self.final)
-
-		if (step == model.time.first()) & (self.initial is not None):
-
-			constraint = pyomo.Constraint(expr = soc == self.initial)
-
-			setattr(model, self.handle + '_initial', constraint)
-
-		elif (step == model.time.last()) & (self.final is not None):
-
-			constraint = pyomo.Constraint(expr = soc == self.final)
-
-			setattr(model, self.handle + '_final', constraint)
-
-		return model
-
-	def transmission(self, model, step):
-
-		return self.energy(model, step)
-
-class Dissipation(Node):
-
-	def __init__(self, handle, time, links, **kwargs):
-
-		self.handle = handle
-		self.time = time
-		self.links = links
-		self.bounds = kwargs.get('bounds', (-np.inf, 0))
-
-	def variables(self, model):
-
-		var = pyomo.Var(
-			self.time,
-			domain = pyomo.NonNegativeReals,
-			bounds = self.bounds,
-			)
-
-		setattr(model, self.handle, var)
-
-		return model
-
-	def energy(self, model, step):
-
 		return getattr(model, self.handle)[step]
 
-	def transmission(self, model, step):
+	def results(self, model, results):
 
-		return self.energy(model, step)
+		dissipation = np.array(
+			list(getattr(model, self.handle).extract_values().values())
+			)
+
+		results[self.dissipation + '_dissipation'] = dissipation
+
+		return results
 
 class Link():
 
@@ -211,45 +302,29 @@ class Link():
 
 		self.source = source
 		self.target = target
-
-class Line(Link):
-
-	def __init__(self, source, target, **kwargs):
-
-		self.source = source
-		self.target = target
-		self.efficiency = kwargs.get('efficiency', 1) # From source to target
+		self.handle = f'{source}_{target}'
+		self.efficiency = kwargs.get('efficiency', 1)
 		self.susceptance = kwargs.get('susceptance', 1)
-		self.limit = kwargs.get('limit', np.inf)
+		self.limit = kwargs.get('limit', (-np.inf, np.inf))
+		self.direction = kwargs.get('direction', 1)
+
+	def variables(self, model):
+
+		return model
+
+	def energy(self, model, step):
+
+		return getattr(model, self.handle)[step]
 
 	def bounds(self, model, step):
 
-		if hasattr(self.limit, '__iter__'):
+		if hasattr(self.limit[0], '__iter__'):
 
-			return -self.limit[step], self.limit[step]
-
-		else:
-
-			return -self.limit, self.limit
-
-class Feeder(Link):
-
-	def __init__(self, source, target, **kwargs):
-
-		self.source = source
-		self.target = target
-		self.efficiency = kwargs.get('efficiency', 1) # From source to target
-		self.limit = kwargs.get('limit', np.inf)
-
-	def bounds(self, model, step):
-
-		if hasattr(self.limit, '__iter__'):
-
-			return -self.limit[step], self.limit[step]
+			return self.limit[step][0], self.limit[step][1]
 
 		else:
 
-			return -self.limit, self.limit
+			return self.limit[0], self.limit[1]
 
 class DC_OPF():
 
@@ -281,37 +356,13 @@ class DC_OPF():
 
 		for handle, node in self.graph._node.items():
 
-			if node['type'] == 'bus':
-
-				node['object'] = Bus(handle, **node)
-
-			elif node['type'] == 'generation':
-
-				node['object'] = Generation(handle, **node)
-
-			elif node['type'] == 'load':
-
-				node['object'] = Load(handle, **node)
-
-			elif node['type'] == 'storage':
-
-				node['object'] = Storage(handle, **node)
-
-			elif node['type'] == 'dissipation':
-
-				node['object'] = Dissipator(handle, **node)
+			node['object'] = Bus(handle, **node)
 
 		for source, adjacency in self.graph._adj.items():
 
 			for target, link in adjacency.items():
 
-				if link['type'] == 'line':
-
-					link['object'] = Line(source, target, **link)
-
-				elif link['type'] == 'feeder':
-
-					link['object'] = Feeder(source, target, **link)
+				link['object'] = Link(source, target, **link)
 
 	def build_model(self, **kwargs):
 
@@ -337,6 +388,12 @@ class DC_OPF():
 		for node in self.graph._node.values():
 
 			self.model = node['object'].variables(self.model)
+
+		for source, adjacency in self.graph._adj.items():
+
+			for target, link in adjacency.items():
+
+				self.model = link['object'].variables(self.model)
 
 	def objective(self, **kwargs):
 
@@ -366,81 +423,66 @@ class DC_OPF():
 
 	def balancing_constraints(self, **kwargs):
 
-		self.model.balancing_constraints = pyomo.ConstraintList()
-		self.model.line_flow_constraints = pyomo.ConstraintList()
+		# energy = {source: 0 for source in list(self.graph.nodes)}
+		energy = {}
 
-		sources = list(self.graph._adj.keys())
-
-		direction = {}
-
+		# Energy at nodes
 		for step in self.model.time:
-
-			for source, adjacency in self.graph._adj.items():
-
-				direction[source] = {}
-
-				for target, link in adjacency.items():
-
-					direction[source][target] = 1
 
 			for source, adjacency in self.graph._adj.items():
 
 				source_node = self.graph._node[source]
 
-				if source_node['type'] == 'bus':
+				energy[(source, step)] = source_node['object'].energy(self.model, step)
 
-					energy = 0
+		# Energy between nodes
+		self.model.transmission_constraints = pyomo.ConstraintList()
+		for step in self.model.time:
 
-					for target, link in adjacency.items():
+			for source, adjacency in self.graph._adj.items():
 
-						target_node = self.graph._node[target]
+				source_node = self.graph._node[source]
 
-						if target_node['type'] == 'bus':
+				for target, link in adjacency.items():
 
-							source_transmission = (
-								source_node['object'].transmission(
-									self.model, step)
-								)
+					target_node = self.graph._node[target]
 
-							target_transmission = (
-								target_node['object'].transmission(
-									self.model, step)
-								)
+					source_transmission = source_node['object'].transmission(self.model, step)
+					target_transmission = target_node['object'].transmission(self.model, step)
 
-							line_flow = target_transmission - source_transmission
+					transmission_energy = target_transmission - source_transmission
 
-							line_limits = link['object'].bounds(self.model, step)
+					link_limits = link['object'].bounds(self.model, step)
 
-							if line_limits[0] == line_limits[1]:
+					# Only consider active links
+					if link_limits[0] != link_limits[1]:
 
-								line_flow = 0
-							
-							self.model.line_flow_constraints.add(
-								(
-									line_limits[0],
-									line_flow,
-									line_limits[1]
-									)
-								)
+						self.model.transmission_constraints.add(
+							(link_limits[0], transmission_energy, link_limits[1])
+							)
 
-							energy += line_flow * link['object'].susceptance
-							energy += (
-								(line_flow * (1 - link['object'].efficiency)) / 2 *
-								direction[source][target]
-								)
+						energy[(source, step)] -= (
+							transmission_energy /
+							link['object'].efficiency *
+							link['object'].susceptance
+							)
 
-							direction[target][source] *= -1
+						energy[(target, step)] += (
+							transmission_energy *
+							link['object'].efficiency *
+							link['object'].susceptance
+							)
 
-						else:
+		# Adding balancing constraints
+		self.model.balancing_constraints = pyomo.ConstraintList()
 
-							energy += (
-								target_node['object'].transmission(self.model, step) *
-								link['object'].efficiency
-								)
+		for step in self.model.time:
 
-					self.model.balancing_constraints.add(
-						expr = energy == 0,
-						)
+			for source, adjacency in self.graph._adj.items():
+
+				self.model.balancing_constraints.add(
+					expr = energy[(source, step)] == 0,
+					)
 
 	def solution_dictionary(self):
 		'''
@@ -468,7 +510,7 @@ class DC_OPF():
 		keys = list(self.model.dual.keys())
 		keys = [key for key in keys if 'balancing_constraints' in key.getname()]
 
-		buses = [key for key, node in self.graph._node.items() if node['type'] == 'bus']
+		buses = [key for key, node in self.graph._node.items()]
 
 		location_marginal_price=np.zeros((len(self.time),len(buses)))
 
