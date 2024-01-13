@@ -44,7 +44,7 @@ class Bus():
 
 			elif dependent['type'] == 'dissipation':
 
-				self.objects.append(Dissipator(dependent['id'], **dependent))
+				self.objects.append(Dissipation(dependent['id'], **dependent))
 
 	def variables(self, model):
 
@@ -94,6 +94,24 @@ class Bus():
 
 		return getattr(model, self.handle + '_transmission')[step]
 
+	def results(self, model, results):
+
+		transmission = np.array(
+			list(getattr(model, self.handle + '_transmission').extract_values().values())
+			)
+
+		results[self.handle] = {
+			'transmission': transmission,
+			'objects': {},
+		}
+
+		for obj in self.objects:
+
+			results[self.handle]['objects'] = obj.results(
+				model, results[self.handle]['objects'])
+
+		return results
+
 class Object():
 
 	def variables(self, model):
@@ -125,8 +143,6 @@ class Generation(Object):
 		self.bounds = kwargs.get('bounds', (0, np.inf))
 		self.bus = kwargs.get('bus', None)
 
-		self.generation_handle = self.handle + '_generation'
-
 	def variables(self, model):
 
 		generation = pyomo.Var(
@@ -135,27 +151,29 @@ class Generation(Object):
 			bounds = self.bounds,
 			)
 
-		setattr(model, self.generation_handle, generation)
+		setattr(model, self.handle, generation)
 
 		return model
 
 	def energy(self, model, step):
 
-		return getattr(model, self.generation_handle)[step]
+		return getattr(model, self.handle)[step]
 
 	def objective(self, model, step):
 
-		return self.cost * getattr(model, self.generation_handle)[step]
+		return self.cost * getattr(model, self.handle)[step]
 
 	def results(self, model, results):
 
 		generation = np.array(
-			list(getattr(model, self.generation_handle).extract_values().values())
+			list(getattr(model, self.handle).extract_values().values())
 			)
 
-		results[self.generation_handle] = generation
-
-		results[self.generation_handle + '_cost'] = generation * self.cost
+		results[self.handle] = {
+			'type': 'generation',
+			'generation': generation,
+			'cost': generation * self.cost,
+			}
 
 		return results
 
@@ -189,7 +207,10 @@ class Load(Object):
 			list(getattr(model, self.handle).extract_values().values())
 			)
 
-		results[self.handle] = load
+		results[self.handle] = {
+			'type': 'load',
+			'load': load,
+			}
 
 		return results
 
@@ -250,15 +271,16 @@ class Storage(Object):
 	def results(self, model, results):
 
 		discharge = np.array(
-			list(getattr(model, self.generation_handle).extract_values().values())
+			list(getattr(model, self.handle).extract_values().values())
 			)
 
-		results[self.handle + '_discharge'] = discharge * self.capacity
+		state_of_charge = -np.cumsum(discharge)+self.initial
 
-		results[self.handle + '_state_of_charge'] = np.append(
-			self.initial,
-			-np.cumsum(discharge)+self.initial
-			)
+		results[self.handle] = {
+			'type': 'storage',
+			'discharge': discharge * self.capacity,
+			'state_of_charge': state_of_charge,
+			}
 
 		return results
 
@@ -292,7 +314,10 @@ class Dissipation(Object):
 			list(getattr(model, self.handle).extract_values().values())
 			)
 
-		results[self.dissipation + '_dissipation'] = dissipation
+		results[self.handle] = {
+			'type': 'dissipation',
+			'dissipation': dissipation,
+			}
 
 		return results
 
@@ -344,7 +369,15 @@ class DC_OPF():
 		self.result = solver.solve(self.model)
 
 		# Making solution dictionary
-		self.solution_dictionary()
+		self.collect_results()
+
+	def collect_results(self, **kwargs):
+
+		self.results = {}
+
+		for node in self.graph._node.values():
+
+			self.results = node['object'].results(self.model, self.results)
 
 	def build(self, **kwargs):
 
