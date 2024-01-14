@@ -1,0 +1,82 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[letterpaper, margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{mathptmx}
+\usepackage{float}
+\usepackage[cmex10]{amsmath}
+\usepackage{amsthm,amssymb}
+\usepackage{url}
+\urlstyle{same} 
+\def\UrlBreaks{\do\/\do-}
+\usepackage{breakurl}
+\usepackage{fancybox}
+\usepackage{breqn}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{comment}
+\usepackage[english]{babel}
+\usepackage[acronym,nomain]{glossaries} % list of acronyms
+\usepackage{xurl}
+\usepackage{cite} % math and engineering style citations
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{mathptmx}
+\usepackage{float}
+\usepackage{lipsum}
+\usepackage{framed}
+\usepackage[T1]{fontenc}
+\usepackage[pdfpagelabels,pdfusetitle,colorlinks=false,pdfborder={0 0 0}]{hyperref}
+
+\renewcommand{\arraystretch}{1.2}
+
+\sloppy
+
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1-2\tabcolsep}}
+
+\title{DC Optimal Dispatch Modeling of a Distribution Level Power Grid with Static and Vehicle-to-Grid (V2G) Energy Storage}
+\author{Aaron I. Rabinowitz}
+\date{}
+
+\input{gloss}
+\makeglossaries
+
+\begin{document}
+
+\maketitle
+
+\section*{Introduction}
+
+Modern developed economies are supported by electricity and transportation sectors which are interdependent and combine to account for substantial portions of the modern world's economic output, energy consumption, and environmental externalities. In the present both sectors rely overwhelmingly on hydrocarbon energy inputs. However, presently both sectors are being fundamentally effected by the simultaneous market share growth of \glspl{ev} and renewable power sources. Much of the growth in renewable power generation has come in the form of solar capture which has seen a massive expansion in recent years due to decreasing capital costs. A fundamental shortcoming of solar capture is that power generation is proportional to solar intensity and, thus, production is negligible at night and marginal on cloudy days. Because solar power is unreliable and temporally restricted, it cannot be the only source of power for a grid and must be paired with dispatchable power generation assets such as thermal power plants and, optionally, energy storage assets such as chemical batteries, pump-hydroelectric generation or other mechanical and thermal energy storage systems.
+
+\glspl{ev} represent a further coupling of transportation and electricity. As more \glspl{ev} take to the road in the coming years the power grid will have to both generate enough energy to power them and build the infrastructure to transfer that energy to them. In theory, \glspl{ev} can also provide a utility to the grid in the form of energy storage and charge management. \gls{gacm} involves an optimized unidirectional link between an \gls{ev} and the grid where the \gls{ev} responds to a dynamic pricing signal produced by the grid in order to optimize when it charges and at what power. \gls{gacm} helps the grid by spreading charge requirements out spatially and temporally in order to minimize the difference between power generation peaks and troughs and operates on the same economic principles as smart home devices. \gls{v2s} energy storage involves a bidirectional connection between vehicles and the structures where they plug in which allows the structures to both manage vehicle charging and to discharge vehicles in order to power structure loads to minimize overall grid-borne energy costs for the structure. Finally, \gls{v2g} energy storage involves a bidirectional interaction between the grid and \glspl{ev} facilitated by structures wherein \gls{ev} batteries are used to store and release energy as dictated by the grid.
+
+Because the power consumption due to \glspl{ev} and the power generation due to solar capture are expected to grow rapidly in the coming years, there is, in theory, an obvious economic case to use these technologies in a synergistic manner. \gls{gacm}, \gls{v2s}, and \gls{v2g} all allow the grid to make greater use of solar generation and be less reliant on thermal generation. However, many technological and infrastructural barriers stand in the way of making this a reality. Principally, the technological issues arise from a dated distribution and sub-distribution grids which make bidirectional power transfer efficiencies difficult and uncertain and from the design of all but the most recent \gls{ev} which are not designed to discharge through their charging ports. Between these and other technological issues the potential benefits of \gls{gacm} and \gls{v2s} are limited and \gls{v2g} is effectively impossible in most cases. In order to enable and maximize all three technologies, significant capital will need to be invested in upgrades to the power grid and \gls{ev} fleet, all of which will be, eventually, borne by consumers. Some, but not all, of this cost will be included in otherwise necessary investments to increase grid capacity and to replace old vehicles.
+
+A looming question is to what degree are investments in \gls{gacm}, \gls{v2s} and \gls{v2g} justified. In particular, it is worth asking whether or not these technologies are the best alternative for the purpose of maximizing the benefits of solar generation. While \gls{gacm} and \gls{v2s} serve to arbitrage dynamic grid prices thus producing grid-friendly load profiles, \gls{v2g} proposes to transform \glspl{ev} into grid-dispatchable energy storage assets. In the \gls{v2g} role, \glspl{ev} must compete with static batteries as dispatchable storage assets.
+
+The following model concerns the operation of a distribution level grid run by an \gls{iso}. An \gls{iso} provides a marketplace wherein entities can bid to provide and purchase wholesale energy at various time slots in a day-ahead or real-time market. In a generic case, the \gls{iso} will set prices based on a calculated load profile with the goal of minimizing generation and transmission costs. Because loads and weather conditions can be reasonably accurately predicted for a day-ahead this system enables significant arbitrage which, in theory, benefits all. The most direct and obvious form of energy arbitrage is performed by energy storage entities who currently consist of the operators of static storage installations but may, in the future, include \gls{v2g} aggregators. Arbitrage is a negative-sum game as some economic value must be extracted by the arbitragers in order to be sustained. Energy arbitrage must be sufficiently profitable to overcome the losses incurred in charging and discharging batteries and in transmitting energy. In a well structured market, only those arbitrage operations whose contributions to market efficiency outweigh their extraction can be sustained. The arbitrage operations with the highest potential are those with the loosest limits on and highest certainties concerning inventory and timing. Because \glspl{ev} often disconnect from the grid, can plug in at multiple locations, and use significant portions of stored energy capacity to move, they represent less-than-ideal candidates for arbitrage when considered individually. However, when considered collectively as elements controlled by a single aggregator, these deficiencies are somewhat mitigated and possibly offset by the scale and scalability of storage inventory. The following is an exploration of whether, and under what circumstances, \gls{v2g} is economically justified.
+
+\section*{DC-OPF Model}
+
+The \gls{dcopf} model used in this study minimizes generation cost while meeting load requirements via the control of dispatchable assets. The objective of the model is
+
+\begin{equation}
+	\min_{u\in U}\sum_{g\in G}\sum_{t\in T} c^g_tu^g_t
+\end{equation}
+
+where $U=\{u^1, u^2, \dots, u^n\}$ is the set of controls for all dispatchable assets which contains the set of optimal controls $U^*$, $G=\{g_1, g_2, \dots, g_n\}$ is the set of dispatchable assets, $C=\{c^1, c^2, \dots, c^n\}$ is the set of costs for purchasing energy from each of the dispatchable assets, and $T=\{t_1, t_2, \dots, t_n\}$ is the set of simulation time-steps. The optimization is subject to
+
+
+
+ 
+
+
+
+
+
+
+
+
+\end{document}
