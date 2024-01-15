@@ -63,10 +63,75 @@ The following model concerns the operation of a distribution level grid run by a
 The \gls{dcopf} model used in this study minimizes generation cost while meeting load requirements via the control of dispatchable assets. The objective of the model is
 
 \begin{equation}
-	\min_{u\in U}\sum_{g\in G}\sum_{t\in T} c^g_tu^g_t
+	\min_{u\in U}\sum_{d\in D^b}\sum_{t\in T} j^{b,g,d}_tu^{b,g,d}_t \quad\forall b\in B
 \end{equation}
 
-where $U=\{u^1, u^2, \dots, u^n\}$ is the set of controls for all dispatchable assets which contains the set of optimal controls $U^*$, $G=\{g_1, g_2, \dots, g_n\}$ is the set of dispatchable assets, $C=\{c^1, c^2, \dots, c^n\}$ is the set of costs for purchasing energy from each of the dispatchable assets, and $T=\{t_1, t_2, \dots, t_n\}$ is the set of simulation time-steps. The optimization is subject to
+where $B=\{b^0, b^1, \dots, b^n\}$ is the set of buses in the model,  $U^b=\{u^{b,g,0}, u^{b,g,1}, \dots, u^{b,g,n}, u^{b,t}\}$ is the set of controls for all dispatchable assets and and transmission at bus $b$ which contains the set of optimal controls $U^{b,*}$, $D^b$ is the set of dispatchable assets at bus $b$, $J^b$ is the set of costs for acquiring energy from each of the dispatchable assets at bus $b$, and $T=\{t^0, t^1, \dots, t^n\}$ is the set of simulation time-steps. The optimization is subject to the following constraints:
+
+Conservation of energy:
+
+\begin{equation}
+	\sum_{d\in D^b}\sum_{t\in T}u^{b,g,d}_t + \sum_{y\in Y^b}\sum_{t\in T}c^{b,y}_t + \sum_{s\in S^b}\sum_{t\in T} (u^{s,t}_t-u^{b,t}_t) = 0 \quad\forall b\in B
+\end{equation}
+
+Where $C$ is the set of problem constants including $c^{b,y}_t$ which is the value of a load at a but at t time-step, $Y^b$ is the set of demand loads (non-dispatchable) at bus $b$ and $u^{t,b}$ is the transmission power at bus $b$, and $S^b$ is the set of buses which have links to bus $b$.
+
+Transmission Constraints:
+
+\begin{equation}
+	c^{t,s,b,l}_t \leq (u^{s,t}_t-u^{b,t}_t) \leq c^{t,s,b,u}_t \quad\forall s\in S^b\quad\forall b\in B\quad\forall t\in T
+\end{equation}
+
+Where $c^{t,s,b,l}_t$ and $c^{t,s,b,u}_t$ are the lower and upper bounds on transmission between a source and target node at a time-step respectively. As implied by the constraints, the model is a bi-directional graph composed of buses which contain dispatchable and non-dispatchable loads. Dispatchable loads are time-varying controls to be optimized ($u^{b,g,\dots}_t$) and the non-dispatchable assets are exogenous time-varying constants ($c^{b,\dots}_t$). With this construction \glspl{lmp} at the buses is the shadow price (dual value) of the transmission control at each bus.
+
+There are four types of objects which may belong to a bus:
+
+\begin{enumerate}
+	\item Generation: Dispatchable asset which sends between 0 and a defined upper limit of energy units to the bus. Generation must be positive. Constraints include
+	
+	\begin{equation}
+		0 \leq u^{b,gen,d}_t \leq c^{b,gen}_t \quad\forall gen\in D^{b,gen}\quad\forall b\in B\quad\forall t\in T
+	\end{equation}
+	
+	where $c^{b,gen}_t$ is the generation limit for a generator at a bus at a time-step.
+	
+	\item Dissipation: Dispatchable asset which removes between 0 and a defined upper limit of energy units to the bus. Dissipation must be negative and is used to allow for valid solutions in situations where non-dispatchable generation exceeds load. Constraints include
+	
+	\begin{equation}
+		0 \leq u^{b,d,diss}_t \leq c^{b,diss}_t \quad\forall diss\in D^{b,diss}\quad\forall b\in B\quad\forall t\in T
+	\end{equation}
+	
+	where $c^{b,diss}_t$ is the dissipation limit for a dissipation asset at a bus at a time-step.
+	
+	\item Storage: Dispatchable asset which can either send energy units to or remove energy units from the bus. Storage objects track a time-varying \gls{soc} and have constraints on starting and final \gls{soc} as well as upper and lower limits at all time steps. Storage \gls{soc} is the only problem state. Constraints include
+	
+	\begin{gather}
+		c^{b,s,l}_t \leq u^{b,s,batt}_t \leq c^{b,s,u}_t \quad\forall batt\in D^{b,batt}\quad\forall b\in B\quad\forall t\in T\\
+		c^{b,s,soc_l}_t \leq soc^{b,s,batt}_t \leq c^{b,s,soc_u}_t \quad\forall batt\in D^{b,batt}\quad\forall b\in B\quad\forall t\in T\\
+		
+	\end{gather}
+	
+	where $c^{b,s,l}_t$ is the charge limit and $c^{b,s,u}_t$ is the discharge limit for a storage object at a bus at a time-step.
+	
+	\item Load: Exogenous variable containing time-varying vector of energy added to or removed from the bus. Positive loads are contributions from non-dispatchable generation assets such as solar generation. Negative loads represent power demand.
+\end{enumerate}
+
+Constraints associated with objects include:
+
+
+
+
+A simple 3 bus example is shown in Figure \ref{fig:3_bus_0}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth*2/3]{figs/3_bus_0.png}
+	\caption{Simple 3 Bus Example}
+	\label{fig:3_bus_0}
+\end{figure}
+
+All three buses in the example have one generator ($g$), one load ($y$), and transmission connections to the other buses. All transmission connections are bidirectional and have flow limits. Two scenarios are shown in Figure \ref{fig:3_bus_scenarios}.
+
 
 
 
