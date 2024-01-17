@@ -224,23 +224,41 @@ class Storage(Object):
 		self.final = kwargs.get('final', .5)
 		self.bounds = kwargs.get('bounds', (0, 1))
 		self.limit = kwargs.get('limit', 1)
+		self.efficiency = kwargs.get('efficiency', 1)
 		self.bus = kwargs.get('bus', None)
 
 	def variables(self, model):
 
-		var = pyomo.Var(
+		charge = pyomo.Var(
 			model.time,
 			domain = pyomo.Reals,
-			bounds = (-self.limit, self.limit),
+			bounds = (0, self.limit),
 			)
 
-		setattr(model, self.handle, var)
+		setattr(model, self.handle + '_charge', charge)
+
+		discharge = pyomo.Var(
+			model.time,
+			domain = pyomo.Reals,
+			bounds = (0, self.limit),
+			)
+
+		setattr(model, self.handle + '_discharge', discharge)
 
 		return model
 
 	def energy(self, model, step):
 
-		return getattr(model, self.handle)[step] * self.capacity
+		charge_energy = (
+			getattr(model, self.handle + '_charge')[step] * self.capacity / self.efficiency
+			)
+
+		discharge_energy = (
+			getattr(model, self.handle + '_discharge')[step] *
+			self.capacity * self.efficiency
+			)
+
+		return -charge_energy + discharge_energy 
 
 	def constraints(self, model, step):
 
@@ -248,9 +266,12 @@ class Storage(Object):
 
 		for idx in range(step + 1):
 
-			delta_soc = getattr(model, self.handle)[idx]
+			delta_soc = (
+				getattr(model, self.handle + '_charge')[idx] - 
+				getattr(model, self.handle + '_discharge')[idx]
+				)
 
-			soc -= delta_soc
+			soc += delta_soc
 
 		if step == model.time.last():
 
@@ -270,15 +291,20 @@ class Storage(Object):
 
 	def results(self, model, results):
 
-		discharge = np.array(
-			list(getattr(model, self.handle).extract_values().values())
+		charge = np.array(
+			list(getattr(model, self.handle + '_charge').extract_values().values())
 			)
 
-		state_of_charge = -np.cumsum(discharge)+self.initial
+		discharge = np.array(
+			list(getattr(model, self.handle + '_discharge').extract_values().values())
+			)
+
+		state_of_charge = np.cumsum(charge) - np.cumsum(discharge) + self.initial
 
 		results[self.handle] = {
 			'type': 'storage',
 			'discharge': discharge * self.capacity,
+			'charge': charge * self.capacity,
 			'state_of_charge': state_of_charge,
 			}
 
@@ -296,7 +322,7 @@ class Dissipation(Object):
 
 		var = pyomo.Var(
 			model.time,
-			domain = pyomo.NonNegativeReals,
+			domain = pyomo.NegativeReals,
 			bounds = self.bounds,
 			)
 
@@ -405,7 +431,7 @@ class DC_OPF():
 		self.model.dual = pyomo.Suffix(direction = pyomo.Suffix.IMPORT_EXPORT)
 
 		# Adding time
-		self.model.time = pyomo.Set(initialize = self.time)
+		self.model.time = pyomo.Set(initialize = list(range(len(self.time))))
 
 		# Adding variables
 		self.variables()

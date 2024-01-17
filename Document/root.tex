@@ -63,26 +63,26 @@ The following model concerns the operation of a distribution level grid run by a
 The \gls{dcopf} model used in this study minimizes generation cost while meeting load requirements via the control of dispatchable assets. The objective of the model is
 
 \begin{equation}
-	\min_{u\in U}\sum_{d\in D^b}\sum_{t\in T} j^{b,g,d}_tu^{b,g,d}_t \quad\forall b\in B
+	\min_{u\in U}\sum_{b\in B}\sum_{d\in D^b}\sum_{t\in T} j^{d}_tu^{d}_t
 \end{equation}
 
-where $B=\{b^0, b^1, \dots, b^n\}$ is the set of buses in the model,  $U^b=\{u^{b,g,0}, u^{b,g,1}, \dots, u^{b,g,n}, u^{b,t}\}$ is the set of controls for all dispatchable assets and and transmission at bus $b$ which contains the set of optimal controls $U^{b,*}$, $D^b$ is the set of dispatchable assets at bus $b$, $J^b$ is the set of costs for acquiring energy from each of the dispatchable assets at bus $b$, and $T=\{t^0, t^1, \dots, t^n\}$ is the set of simulation time-steps. The optimization is subject to the following constraints:
+where $B=\{b^0, b^1, \dots, b^n\}$ is the set of buses in the model,  $U$ is the set of controls for all dispatchable assets and and transmission at all buses which contains the set of optimal controls $U^{*}$, $D^b$ is the set of dispatchable assets at bus $b$, $J^b$ is the set of costs for acquiring energy from each of the dispatchable assets at bus $b$, and $T=\{t^0, t^1, \dots, t^n\}$ is the set of simulation time-steps. The optimization is subject to the following constraints:
 
 Conservation of energy:
 
 \begin{equation}
-	\sum_{d\in D^b}\sum_{t\in T}u^{b,g,d}_t + \sum_{y\in Y^b}\sum_{t\in T}c^{b,y}_t + \sum_{s\in S^b}\sum_{t\in T} (u^{s,t}_t-u^{b,t}_t) = 0 \quad\forall b\in B
+	\sum_{d\in D^b}\sum_{t\in T}u^{d}_t + \sum_{y\in Y^b}\sum_{t\in T}c^{y}_t + \sum_{s\in S^b}\sum_{t\in T} \left[\left(c^{s,b,eff}-\frac{1}{c^{b,s,eff}}\right)(u^{s,t}_t-u^{b,t}_t)\right] = 0 \quad\forall b\in B
 \end{equation}
 
-Where $C$ is the set of problem constants including $c^{b,y}_t$ which is the value of a load at a but at t time-step, $Y^b$ is the set of demand loads (non-dispatchable) at bus $b$ and $u^{t,b}$ is the transmission power at bus $b$, and $S^b$ is the set of buses which have links to bus $b$.
+Where $C$ is the set of problem constants including $c^{y}_t$ which is the value of a load at a but at t time-step, $Y^b$ is the set of demand loads (non-dispatchable) at bus $b$ and $u^{b,t}$ is the transmission power at bus $b$, and $S^b$ is the set of buses which have links to bus $b$.
 
 Transmission Constraints:
 
 \begin{equation}
-	c^{t,s,b,l}_t \leq (u^{s,t}_t-u^{b,t}_t) \leq c^{t,s,b,u}_t \quad\forall s\in S^b\quad\forall b\in B\quad\forall t\in T
+	c^{t,s,b,min}_t \leq (u^{s,t}_t-u^{b,t}_t) \leq c^{t,s,b,max}_t \quad\forall s\in S^b\quad\forall b\in B\quad\forall t\in T
 \end{equation}
 
-Where $c^{t,s,b,l}_t$ and $c^{t,s,b,u}_t$ are the lower and upper bounds on transmission between a source and target node at a time-step respectively. As implied by the constraints, the model is a bi-directional graph composed of buses which contain dispatchable and non-dispatchable loads. Dispatchable loads are time-varying controls to be optimized ($u^{b,g,\dots}_t$) and the non-dispatchable assets are exogenous time-varying constants ($c^{b,\dots}_t$). With this construction \glspl{lmp} at the buses is the shadow price (dual value) of the transmission control at each bus.
+Where $c^{t,s,b,min}_t$ and $c^{t,s,b,max}_t$ are the lower and upper bounds on transmission between a source and target node at a time-step respectively. As implied by the constraints, the model is a bi-directional graph composed of buses which contain dispatchable and non-dispatchable loads. Dispatchable loads are time-varying controls to be optimized and the non-dispatchable assets are exogenous time-varying constants. With this construction \glspl{lmp} at the buses is the shadow price (dual value) of the transmission control at each bus.
 
 There are four types of objects which may belong to a bus:
 
@@ -90,47 +90,52 @@ There are four types of objects which may belong to a bus:
 	\item Generation: Dispatchable asset which sends between 0 and a defined upper limit of energy units to the bus. Generation must be positive. Constraints include
 	
 	\begin{equation}
-		0 \leq u^{b,gen,d}_t \leq c^{b,gen}_t \quad\forall gen\in D^{b,gen}\quad\forall b\in B\quad\forall t\in T
+		0 \leq u^{gen}_t \leq c^{gen,max}_t \quad\forall gen\in D^{b,gen}\quad\forall b\in B\quad\forall t\in T
 	\end{equation}
 	
-	where $c^{b,gen}_t$ is the generation limit for a generator at a bus at a time-step.
+	where $c^{gen,max}_t$ is the generation limit for a generator at a bus at a time-step.
 	
 	\item Dissipation: Dispatchable asset which removes between 0 and a defined upper limit of energy units to the bus. Dissipation must be negative and is used to allow for valid solutions in situations where non-dispatchable generation exceeds load. Constraints include
 	
 	\begin{equation}
-		0 \leq u^{b,d,diss}_t \leq c^{b,diss}_t \quad\forall diss\in D^{b,diss}\quad\forall b\in B\quad\forall t\in T
+		c^{diss,min}_t \leq u^{diss}_t \leq 0 \quad\forall diss\in D^{b,diss}\quad\forall b\in B\quad\forall t\in T
 	\end{equation}
 	
-	where $c^{b,diss}_t$ is the dissipation limit for a dissipation asset at a bus at a time-step.
+	where $c^{diss,min}_t$ is the dissipation limit for a dissipation asset at a bus at a time-step.
 	
 	\item Storage: Dispatchable asset which can either send energy units to or remove energy units from the bus. Storage objects track a time-varying \gls{soc} and have constraints on starting and final \gls{soc} as well as upper and lower limits at all time steps. Storage \gls{soc} is the only problem state. Constraints include
 	
 	\begin{gather}
-		c^{b,s,l}_t \leq u^{b,s,batt}_t \leq c^{b,s,u}_t \quad\forall batt\in D^{b,batt}\quad\forall b\in B\quad\forall t\in T\\
-		c^{b,s,soc_l}_t \leq soc^{b,s,batt}_t \leq c^{b,s,soc_u}_t \quad\forall batt\in D^{b,batt}\quad\forall b\in B\quad\forall t\in T\\
-		
+		c^{batt,l}_t \leq u^{batt}_t \leq c^{batt,u}_t \quad\forall batt\in D^{batt}\quad\forall b\in B\quad\forall t\in T\\
+		c^{batt,soc_l}_t \leq soc^{batt}_t \leq c^{batt,soc_u}_t \quad\forall batt\in D^{batt}\quad\forall b\in B\quad\forall t\in T\\
+		soc^{batt}_0=c^{batt,soc_i}\quad\forall batt\in D^{batt}\quad\forall b\in B\\
+		soc^{batt}_n=c^{batt,soc_f}\quad\forall batt\in D^{batt}\quad\forall b\in B\\
+		soc^{batt}_t=soc^{batt}_{t-1}+\frac{u^{batt}_t}{c^{batt,cap}_t}\quad\forall batt\in D^{batt}\quad\forall b\in B\quad\forall t\in T
 	\end{gather}
 	
-	where $c^{b,s,l}_t$ is the charge limit and $c^{b,s,u}_t$ is the discharge limit for a storage object at a bus at a time-step.
+	where $c^{b,batt,l}_t$ is the charge limit and $c^{b,batt,u}_t$ is the discharge limit for a storage object at a bus at a time-step.
 	
 	\item Load: Exogenous variable containing time-varying vector of energy added to or removed from the bus. Positive loads are contributions from non-dispatchable generation assets such as solar generation. Negative loads represent power demand.
 \end{enumerate}
 
-Constraints associated with objects include:
-
-
-
-
-A simple 3 bus example is shown in Figure \ref{fig:3_bus_0}.
+The graph structure of the model allows for any number of assets to be added to a bus. The optimization can also take place over an arbitrary number of time-steps. Renewable generation can be modeled in one of two ways: if renewables are modeled as dispatchable assets then generators with time-varying limits should be used. If renewables are modeled as loads then dissipation should be added to any node where they are present to allow for a solution to be computed. All links in the model have efficiencies. If a link connecting a source bus to a target bus is 80\% efficient then the source bus will need to transfer 1.25 kWh in order for the target bus to receive 1 kWh. A simple 3 bus (green circles) graph with generation (purple diamonds), loads (pink squares), and storage (orange hexagons) is shown in Figure \ref{fig:3_bus} with an example including a vehicle.
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=\linewidth*2/3]{figs/3_bus_0.png}
-	\caption{Simple 3 Bus Example}
-	\label{fig:3_bus_0}
+	\fbox{\begin{subfigure}{\linewidth/2}
+		\centering
+		\includegraphics[height = 5cm]{figs/3_bus_basic.png}
+		\caption{Without Vehicle}
+	\end{subfigure}}%
+	\fbox{\begin{subfigure}{\linewidth/2}
+		\centering
+		\includegraphics[height = 5cm]{figs/3_bus_v2g.png}
+		\caption{With Vehicle}
+	\end{subfigure}}
+	\caption{3 Bus Examples}\label{fig:3_bus}
 \end{figure}
 
-All three buses in the example have one generator ($g$), one load ($y$), and transmission connections to the other buses. All transmission connections are bidirectional and have flow limits. Two scenarios are shown in Figure \ref{fig:3_bus_scenarios}.
+In order to model a grid wherein vehicles are connected, grid-aware, and dispatchable, vehicles must be treated as separate buses. It is common to model vehicles as time varying loads but this is insufficient if the vehicles, or some subset of vehicles, respond to grid conditions. The dashed lines in the above figure indicate that the connections between the vehicle ($b_3$) and the buses it interacts with have time-varying parameters. Because vehicles can move they are able to connect to multiple buses or no buses throughout a simulation time scale. For example, a vehicle might be plugged in at home from 0:00 to 7:30, not plugged in from 7:30 to 12:30, plugged in at work from 12:30 to 17:30, not plugged in from 17:30 to 21:30, then plugged in at home again from 21:30 to 24:00. When plugged in the vehicle bus can receive power from or send power to the grid depending on the max and min transmission allowance of the link. When unplugged, the vehicle bus must be able to satisfy the vehicle load using its battery and/or any on-board generation. It is worth noting that, by moving between nodes, vehicles may perform energy arbitrage in space and time but, in this model, it is assumed that vehicle motion is pre-determined and will net be changed to minimize costs. From a modeling perspective, a vehicle has a link to all buses it visits in the course of a day. When not connected to a given bus, the max and min flow on the link is zero.
 
 
 

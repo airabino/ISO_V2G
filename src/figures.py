@@ -114,7 +114,7 @@ def PlotDashboard(graph, results, time, ax = None, **kwargs):
                         source_transmission[idx]
                         )
 
-        ax[0, 2].plot(time, net_transmission, label = f'{bus}',
+        ax[0, 2].plot(time, net_transmission, label = f'{source}',
                     **kwargs.get('plot', {}))
 
     ax[0, 2].set(title = 'Net Transmission', xlabel = 'Time Period', ylabel = 'kWh')

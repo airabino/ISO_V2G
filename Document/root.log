@@ -1,4 +1,4 @@
-This is LuaHBTeX, Version 1.17.1 (MiKTeX 23.12) (format=lualatex 2023.8.2)  14 JAN 2024 18:12
+This is LuaHBTeX, Version 1.17.1 (MiKTeX 23.12) (format=lualatex 2023.8.2)  16 JAN 2024 12:00
  restricted system commands enabled.
 **root.tex
 (./root.tex
@@ -1048,22 +1048,28 @@ LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <9> not available
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <7> not available
 (Font)              Font shape `OT1/ptm/b/n' tried instead on input line 65.
  [2] [3]
-<figs/3_bus_0.png, id=33, 392.4261pt x 247.8861pt>
-File: figs/3_bus_0.png Graphic file (type png)
-<use figs/3_bus_0.png>
-Package luatex.def Info: figs/3_bus_0.png  used on input line 126.
-(luatex.def)             Requested size: 313.17001pt x 197.82875pt.
+<figs/3_bus_basic.png, id=34, 1574.88374pt x 1303.87125pt>
+File: figs/3_bus_basic.png Graphic file (type png)
+<use figs/3_bus_basic.png>
+Package luatex.def Info: figs/3_bus_basic.png  used on input line 129.
+(luatex.def)             Requested size: 171.81993pt x 142.26378pt.
+<figs/3_bus_v2g.png, id=35, 1942.25626pt x 1303.87125pt>
+File: figs/3_bus_v2g.png Graphic file (type png)
+<use figs/3_bus_v2g.png>
+Package luatex.def Info: figs/3_bus_v2g.png  used on input line 134.
+(luatex.def)             Requested size: 211.9003pt x 142.26378pt.
 
+Overfull \hbox (13.59996pt too wide) in paragraph at lines 129--135
+ [][][] 
+ []
 
-LaTeX Warning: Reference `fig:3_bus_scenarios' on page 4 undefined on input lin
-e 131.
-
+[4<./figs/3_bus_basic.png><./figs/3_bus_v2g.png>]
 
 Package glossaries Warning: No \printglossary or \printglossaries found. 
 (Remove \makeglossaries if you don't want any glossaries.) 
 This document will not have a glossary.
 
-[4<./figs/3_bus_0.png>] (./root.aux
+[5] (./root.aux
 Package babel Info: No hyphenation patterns were set for
 (babel)             language 'english'. Reported on input line 24.
 )
@@ -1071,34 +1077,31 @@ Package babel Info: No hyphenation patterns were set for
 LaTeX2e <2023-06-01> patch level 1
 L3 programming layer <2023-06-30>
  ***********
-
-
-LaTeX Warning: There were undefined references.
-
 Package rerunfilecheck Info: File `root.out' has not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
 )
 
 Here is how much of LuaTeX's memory you used:
- 27671 strings out of 477559
+ 27692 strings out of 477559
  125129,1977958 words of node,token memory allocated
- 722 words of node memory still in use:
-   6 hlist, 2 vlist, 2 rule, 2 glue, 4 kern, 1 glyph, 33 attribute, 84 glue_spec
-, 18 attribute_list, 1 write nodes
-   avail lists: 2:707,3:266,4:22,5:407,6:33,7:10072,8:57,9:501,10:19,11:28
- 47953 multiletter control sequences out of 65536+600000
+ 710 words of node memory still in use:
+   6 hlist, 2 vlist, 2 rule, 2 glue, 4 kern, 1 glyph, 29 attribute, 84 glue_spec
+, 16 attribute_list, 1 write nodes
+   avail lists: 2:908,3:266,4:22,5:476,6:33,7:10072,8:75,9:644,10:19,11:28
+ 47966 multiletter control sequences out of 65536+600000
  144 fonts using 9278295 bytes
- 91i,6n,115p,2249b,525s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 91i,10n,115p,2249b,642s stack positions out of 10000i,1000n,20000p,200000b,200000s
 {/usr/local/share/miktex-texmf/fonts/enc/dvips/base/8r.enc}</usr/local/share/mik
-tex-texmf/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/local/share/miktex-tex
-mf/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/local/share/miktex-texmf/fonts
-/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/share/miktex-texmf/fonts/type1/
-urw/symbol/usyr.pfb></usr/local/share/miktex-texmf/fonts/type1/urw/times/utmb8a.
-pfb></usr/local/share/miktex-texmf/fonts/type1/urw/times/utmr8a.pfb></usr/local/
-share/miktex-texmf/fonts/type1/urw/times/utmri8a.pfb>
-Output written on root.pdf (4 pages, 136427 bytes).
+tex-texmf/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/local/share/miktex-tex
+mf/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/local/share/miktex-texmf/font
+s/type1/public/amsfonts/cm/cmr10.pfb></usr/local/share/miktex-texmf/fonts/type1/
+public/amsfonts/cm/cmsy10.pfb></usr/local/share/miktex-texmf/fonts/type1/urw/sym
+bol/usyr.pfb></usr/local/share/miktex-texmf/fonts/type1/urw/times/utmb8a.pfb></u
+sr/local/share/miktex-texmf/fonts/type1/urw/times/utmr8a.pfb></usr/local/share/m
+iktex-texmf/fonts/type1/urw/times/utmri8a.pfb>
+Output written on root.pdf (5 pages, 243407 bytes).
 
-PDF statistics: 69 PDF objects out of 1000 (max. 8388607)
- 18 named destinations out of 1000 (max. 131072)
+PDF statistics: 83 PDF objects out of 1000 (max. 8388607)
+ 23 named destinations out of 1000 (max. 131072)
  1 words of extra memory for PDF output out of 10000 (max. 100000000)
 
