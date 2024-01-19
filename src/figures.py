@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 
 from matplotlib.colors import LinearSegmentedColormap
 
+from scipy.signal import savgol_filter as sgf
+
 from .utilities import IsIterable
 
 #Named color schemes
@@ -53,19 +55,21 @@ def PlotDashboard(graph, results, time, ax = None, **kwargs):
     plt.rcParams.update(
         {
             'axes.titlesize': kwargs.get('titlesize', 11),
-            'xtick.labelsize': kwargs.get('labelsize', 5),
-            'ytick.labelsize': kwargs.get('labelsize', 5),
-            'legend.fontsize': kwargs.get('legendsize', 5),
+            'xtick.labelsize': kwargs.get('labelsize', 8),
+            'ytick.labelsize': kwargs.get('labelsize', 8),
+            'legend.fontsize': kwargs.get('legendsize', 8),
             'axes.prop_cycle': mpl.cycler(
                 color = kwargs.get('prop_cycle', colors['default_prop_cycle']))
         }
     )
 
+    sgf_params = kwargs.get('sgf_params', (51, 3))
+
     return_fig = False
 
     if ax is None:
 
-        fig, ax = plt.subplots(2, 3, **kwargs.get('figure', {}))
+        fig, ax = plt.subplots(2, 2, **kwargs.get('figure', {}))
         return_fig = True
 
     # Generation
@@ -75,22 +79,24 @@ def PlotDashboard(graph, results, time, ax = None, **kwargs):
 
             if obj_data['type'] == 'generation':
                 
-                ax[0, 0].plot(time, obj_data['generation'], label = f'{obj} ({bus})',
+                ax[0, 0].plot(time, sgf(obj_data['generation'], *sgf_params),
+                    label = f'{obj} ({bus})',
                     **kwargs.get('plot', {}))
 
-    ax[0, 0].set(title = 'Generation', xlabel = 'Time Period', ylabel = 'kWh')
+    ax[0, 0].set(title = 'Generation Power', ylabel = 'kW')
 
-    # Generation cost
-    for bus, bus_data in results.items():
+    # # Generation cost
+    # for bus, bus_data in results.items():
 
-        for obj, obj_data in bus_data['objects'].items():
+    #     for obj, obj_data in bus_data['objects'].items():
 
-            if obj_data['type'] == 'generation':
+    #         if obj_data['type'] == 'generation':
                 
-                ax[0, 1].plot(time, np.cumsum(obj_data['cost']), label = f'{obj} ({bus})',
-                    **kwargs.get('plot', {}))
+    #             ax[0, 1].plot(time, sgf(np.cumsum(obj_data['cost']), *sgf_params),
+    #                 label = f'{obj} ({bus})',
+    #                 **kwargs.get('plot', {}))
 
-    ax[0, 1].set(title = 'Generation Cost', xlabel = 'Time Period', ylabel = 'USD')
+    # ax[0, 1].set(title = 'Generation Cost', xlabel = 'Time Period', ylabel = 'USD')
 
     # Net Transmission
     for source, link in graph._adj.items():
@@ -114,42 +120,51 @@ def PlotDashboard(graph, results, time, ax = None, **kwargs):
                         source_transmission[idx]
                         )
 
-        ax[0, 2].plot(time, net_transmission, label = f'{source}',
-                    **kwargs.get('plot', {}))
+        ax[0, 1].plot(time, sgf(net_transmission, *sgf_params),
+            label = f'{source}',
+            **kwargs.get('plot', {}))
 
-    ax[0, 2].set(title = 'Net Transmission', xlabel = 'Time Period', ylabel = 'kWh')
+    ax[0, 1].set(title = 'Net Transmission Power', ylabel = 'kW')
 
     # Loads
     for bus, bus_data in results.items():
         for obj, obj_data in bus_data['objects'].items():
             if obj_data['type'] == 'load':
                 
-                ax[1, 0].plot(time, obj_data['load'], label = f'{obj} ({bus})',
+                ax[1, 0].plot(time, obj_data['load'],
+                    label = f'{obj} ({bus})',
                     **kwargs.get('plot', {}))
 
-    ax[1, 0].set(title = 'Loads', xlabel = 'Time Period', ylabel = 'kWh')
+    ax[1, 0].set(title = 'Load Power', xlabel = 'Time Period', ylabel = 'kW')
 
     # Storage
     for bus, bus_data in results.items():
         for obj, obj_data in bus_data['objects'].items():
             if obj_data['type'] == 'storage':
                 
-                ax[1, 1].plot(time, obj_data['state_of_charge'], label = f'{obj} ({bus})',
+                ax[1, 1].plot(time, sgf(obj_data['state_of_charge'], *sgf_params),
+                    label = f'{obj} ({bus})',
                     **kwargs.get('plot', {}))
+
+                # ax[1, 1].plot(time, obj_data['state_of_charge'],
+                #     label = f'{obj} ({bus})',
+                #     **kwargs.get('plot', {}))
 
     ax[1, 1].set(title = 'Storage SOC', xlabel = 'Time Period', ylabel = '[-]')
 
-    # Dissipation
-    for bus, bus_data in results.items():
-        for obj, obj_data in bus_data['objects'].items():
-            if obj_data['type'] == 'dissipation':
+    # # Dissipation
+    # for bus, bus_data in results.items():
+    #     for obj, obj_data in bus_data['objects'].items():
+    #         if obj_data['type'] == 'dissipation':
                 
-                ax[1, 2].plot(time, obj_data['dissipation'], label = f'{obj} ({bus})',
-                    **kwargs.get('plot', {}))
+    #             ax[1, 2].plot(time, sgf(obj_data['dissipation'], *sgf_params),
+    #                 label = f'{obj} ({bus})',
+    #                 **kwargs.get('plot', {}))
 
-    ax[1, 2].set(title = 'Dissipation', xlabel = 'Time Period', ylabel = 'kWh')
+    # ax[1, 2].set(title = 'Dissipation', xlabel = 'Time Period', ylabel = 'kWh')
 
     _ = [ax.legend(**kwargs.get('legend', {})) for ax in ax for ax in ax]
+    _ = [ax.grid(**kwargs.get('grid', {})) for ax in ax for ax in ax]
     _ = [ax.set(**kwargs.get('axes', {})) for ax in ax for ax in ax]
 
 

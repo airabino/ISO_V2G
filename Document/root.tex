@@ -137,6 +137,10 @@ The graph structure of the model allows for any number of assets to be added to 
 
 In order to model a grid wherein vehicles are connected, grid-aware, and dispatchable, vehicles must be treated as separate buses. It is common to model vehicles as time varying loads but this is insufficient if the vehicles, or some subset of vehicles, respond to grid conditions. The dashed lines in the above figure indicate that the connections between the vehicle ($b_3$) and the buses it interacts with have time-varying parameters. Because vehicles can move they are able to connect to multiple buses or no buses throughout a simulation time scale. For example, a vehicle might be plugged in at home from 0:00 to 7:30, not plugged in from 7:30 to 12:30, plugged in at work from 12:30 to 17:30, not plugged in from 17:30 to 21:30, then plugged in at home again from 21:30 to 24:00. When plugged in the vehicle bus can receive power from or send power to the grid depending on the max and min transmission allowance of the link. When unplugged, the vehicle bus must be able to satisfy the vehicle load using its battery and/or any on-board generation. It is worth noting that, by moving between nodes, vehicles may perform energy arbitrage in space and time but, in this model, it is assumed that vehicle motion is pre-determined and will net be changed to minimize costs. From a modeling perspective, a vehicle has a link to all buses it visits in the course of a day. When not connected to a given bus, the max and min flow on the link is zero.
 
+\section*{Simple Example}
+
+
+
 
 
 
